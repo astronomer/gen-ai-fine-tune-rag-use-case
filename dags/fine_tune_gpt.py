@@ -33,10 +33,11 @@ from include.custom_operators.gpt_fine_tune import OpenAIFineTuneOperator
     catchup=False,
     max_consecutive_failed_dag_runs=5,
     render_template_as_native_obj=True,
-    tags=["GPT-3.5-turbo"],
+    tags=["GPT-3.5-turbo", "use-case"],
     default_args={
         "retries": 3,
         "retry_delay": duration(minutes=5),
+        "retry_exponential_backoff": True,
         "owner": "MLE team",
     },
     params={
