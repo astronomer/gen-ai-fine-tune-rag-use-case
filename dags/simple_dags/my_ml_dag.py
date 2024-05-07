@@ -4,7 +4,7 @@ from pendulum import datetime
 
 
 @dag(
-    schedule=[Dataset("s3://bucket/data.csv")],
+    schedule=[Dataset("s3://my_bucket/data.csv")],
     start_date=datetime(2024, 4, 1),
     catchup=False,
     tags=["Simple DAGs", "Datasets"],
