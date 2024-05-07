@@ -11,7 +11,7 @@ from pendulum import datetime
 )
 def my_etl_dag():
     @task(
-        outlets=[Dataset("s3://bucket/data.csv")],
+        outlets=[Dataset("s3://my_bucket/data.csv")],
     )
     def my_task():
         # code that updates the dataset (or not!)
