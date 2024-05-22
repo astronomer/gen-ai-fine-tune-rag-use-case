@@ -141,7 +141,7 @@ def champion_challenger():
         """
         Compare the accuracy of the champion and challenger models.
         """
-        if champion_accuracy > challenger_accuracy:
+        if champion_accuracy >= challenger_accuracy:
             return keep_champion_task_id
         else:
             return switch_champion_task_id

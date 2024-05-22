@@ -17,7 +17,6 @@ t_log = logging.getLogger("airflow.task")
 
 _COMBINED_TRAIN_EXAMPLES_URI = os.getenv("COMBINED_TRAIN_EXAMPLES_URI")
 _COMBINED_VALIDATION_EXAMPLES_URI = os.getenv("COMBINED_VALIDATION_EXAMPLES_URI")
-_PLOTS_URI = os.getenv("PLOTS_URI")
 _CHALLENGER_MODEL_INFO_URI = os.getenv("CHALLENGER_MODEL_INFO_URI")
 
 from include.custom_operators.gpt_fine_tune import OpenAIFineTuneOperator
@@ -139,12 +138,7 @@ def fine_tune_gpt():
         retries=0,
     )
 
-    @task(
-        outlets=[
-            Dataset(_PLOTS_URI),
-            Dataset(_CHALLENGER_MODEL_INFO_URI),
-        ]
-    )
+    @task(outlets=[Dataset(_CHALLENGER_MODEL_INFO_URI)])
     def get_model_model_results(result_files: list[str], **context) -> list[float]:
         """
         Get the results of the fine-tuning job. Plot them and save them to a file.
@@ -154,7 +148,9 @@ def fine_tune_gpt():
             List[float]: List of the last validation mean token accuracy for each result file.
         """
         from openai import OpenAI
+        from io import StringIO
         import pandas as pd
+        import base64
         import os
         import json
 
@@ -172,10 +168,11 @@ def fine_tune_gpt():
         )
 
         for file in result_files:
-            result_file_info = client.files.retrieve_content(file)
-            from io import StringIO
+            result_file_info = client.files.content(file).content
+            decoded_bytes = base64.b64decode(result_file_info)
+            decoded_string = decoded_bytes.decode('utf-8')
 
-            df = pd.read_csv(StringIO(result_file_info))
+            df = pd.read_csv(StringIO(decoded_string))
 
             plot_model_train_val_graph(fine_tuned_model, df, ts)
 
