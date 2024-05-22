@@ -17,7 +17,6 @@ t_log = logging.getLogger("airflow.task")
 
 _COMBINED_TRAIN_EXAMPLES_URI = os.getenv("COMBINED_TRAIN_EXAMPLES_URI")
 _COMBINED_VALIDATION_EXAMPLES_URI = os.getenv("COMBINED_VALIDATION_EXAMPLES_URI")
-_PLOTS_URI = os.getenv("PLOTS_URI")
 _CHALLENGER_MODEL_INFO_URI = os.getenv("CHALLENGER_MODEL_INFO_URI")
 
 from include.custom_operators.gpt_fine_tune import OpenAIFineTuneOperator
@@ -139,72 +138,11 @@ def fine_tune_gpt():
         retries=0,
     )
 
-    @task(
-        outlets=[
-            Dataset(_PLOTS_URI),
-            Dataset(_CHALLENGER_MODEL_INFO_URI),
-        ]
-    )
-    def get_model_model_results(result_files: list[str], **context) -> list[float]:
-        """
-        Get the results of the fine-tuning job. Plot them and save them to a file.
-        Args:
-            result_files (List[str]): List of file IDs containing the fine-tuning results.
-        Returns:
-            List[float]: List of the last validation mean token accuracy for each result file.
-        """
-        from openai import OpenAI
-        import pandas as pd
-        import os
-        import json
+    @task(outlets=[Dataset(_CHALLENGER_MODEL_INFO_URI)])
+    def update_dataset():
+        t_log.info("New model fine-tuned successfully. Updating the dataset.")
 
-        from include.task_functions.plotting import plot_model_train_val_graph
-
-        client = OpenAI()
-
-        os.makedirs("include/model_results/plots", exist_ok=True)
-        ts = context["ts_nodash"]
-
-        validation_mean_token_acc_list = []
-
-        fine_tuned_model = context["ti"].xcom_pull(
-            task_ids="fine_tune", key="fine_tune_model"
-        )
-
-        for file in result_files:
-            result_file_info = client.files.retrieve_content(file)
-            from io import StringIO
-
-            df = pd.read_csv(StringIO(result_file_info))
-
-            plot_model_train_val_graph(fine_tuned_model, df, ts)
-
-            last_validation_mean_token_acc = df["valid_mean_token_accuracy"].iloc[-1]
-            validation_mean_token_acc_list.append(last_validation_mean_token_acc)
-
-            os.makedirs("include/model_results/challenger", exist_ok=True)
-
-            with open(
-                "include/model_results/challenger/challenger_accuracy.json", "w"
-            ) as f:
-                f.write(
-                    json.dumps(
-                        {
-                            "challenger_model_id": fine_tuned_model,
-                            "accuracy": last_validation_mean_token_acc,
-                        }
-                    )
-                )
-        return validation_mean_token_acc_list
-
-    # ---------------------------------- #
-    # Call tasks and define dependencies #
-    # ---------------------------------- #
-
-    get_model_results_obj = get_model_model_results(
-        result_files=fine_tune.output,
-    )
-    chain(fine_tune, get_model_results_obj)
+    chain(fine_tune, update_dataset())
 
 
 fine_tune_gpt()
